@@ -18,8 +18,8 @@ const minZoomForIcons = 12; // Минимальный уровень зума д
 const center = [-34.9058916, -56.1913095]; // Заданная центральная точка
 const markersCount = 5000; // Количество маркеров для генерации
 const store = useMarkersStore();
-const devMode = computed(() => import.meta.env.MODE === 'development');
 
+const devMode = computed(() => store.devmode);
 store.setMapActiveState(!devMode.value);
 // store.generateRandomMarkers(center, markersCount);
 
@@ -55,7 +55,7 @@ onMounted(async () => {
     }
   }).addTo(map);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap' + (devMode.value ? 'DEV' : '')
+    attribution: '© OpenStreetMap ' + (devMode.value ? 'DEV' : 'PROD')
   }).addTo(map);
 
   ctx = canvas.value.getContext('2d');
@@ -68,7 +68,7 @@ onMounted(async () => {
   });
   window.addEventListener('resize', resizeCanvas);
   canvas.value.addEventListener('click', (event) => handleCanvasClick(event, canvas.value, markers.value, map));
-  canvas.value.addEventListener('mousemove', handleMouseMove);
+  // canvas.value.addEventListener('mousemove', handleMouseMove);
 
   await document.fonts.load(`${iconSize}px FontAwesome`);
   document.fonts.ready.then(() => {
@@ -82,7 +82,7 @@ onUnmounted(() => {
   window.removeEventListener('resize', resizeCanvas);
   if (canvas.value) {
     canvas.value.removeEventListener('click', (event) => handleCanvasClick(event, canvas.value, markers.value, map));
-    canvas.value.removeEventListener('mousemove', handleMouseMove);
+    // canvas.value.removeEventListener('mousemove', handleMouseMove);
   }
 });
 
@@ -142,7 +142,7 @@ function handleMouseMove(event) {
 
 <style scoped>
 #map {
-  height: 100vh;
+  height: 94vh;
   width: 100vw;
 }
 

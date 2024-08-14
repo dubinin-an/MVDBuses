@@ -2,35 +2,32 @@
 import { defineStore } from 'pinia';
 import _ from "lodash";
 
-const devMode = () => {
-  if (import.meta.env.MODE === 'development') return true;
-  return false;
-};
-
 export const useMarkersStore = defineStore('markers', {
   state: () => ({
     markers: [],
     mapActiveState: false,
     busPayload: {
       "empresa": "-1",
-      "lineas": [] //["100"]
-    }
+      "lineas": []
+    },
+    devmode: import.meta.env.MODE === 'development' // Определяем режим
   }),
   actions: {
-    setMapActiveState(state) {
-      this.mapActiveState = state;
-    },
-    setBusPayload(state) {
-      // Добавьте реализацию при необходимости
+    setMapActiveState(payload) {
+      this.mapActiveState = payload;
+      console.log('setMapActiveState mapActiveState', this.mapActiveState);
     },
     async getBusMarkers() {
-      console.log('getBusMarkers DEV', devMode());
+      console.log('getBusMarkers DEV', this.devmode);
 
-      const url = 'http://localhost/stm-online' + (devMode() ? '-mock' : '');
+      const url = this.devmode
+        ? 'http://localhost/stm-online-mock' // Моковые данные
+        : 'http://localhost/stm-online'; // Реальные данные
 
       const temp = _.cloneDeep(this.busPayload);
       if (temp.lineas.length === 0) delete temp.lineas;
 
+      console.log('getBusMarkers mapActiveState', this.mapActiveState);
       do {
         try {
           const response = await fetch(url, {
@@ -43,26 +40,26 @@ export const useMarkersStore = defineStore('markers', {
 
           if (response.ok) {
             const markers = await response.json();
-            markers.features.forEach(feature => {
+            this.markers = markers.features.map(feature => {
               feature.geometry.coordinates.reverse();
               const temp = {
                 id: feature.properties.id,
-                type: 'bus',//feature.properties.tipoLineaDesc,
+                type: 'bus',
                 name: feature.properties.linea,
-                line:feature.properties.sublinea,
+                line: feature.properties.sublinea,
                 status: feature.properties.codigoEmpresa
               };
-              this.markers.push({
+              return {
                 geometry: feature.geometry,
                 properties: temp
-              });
+              };
             });
-            break;
+            if (this.devmode) break; // В режиме разработки делаем запрос только один раз
           }
         } catch (error) {
           console.error("Failed to fetch bus markers:", error);
         }
-      } while (this.mapActiveState);
+      } while (!this.devmode && this.mapActiveState); // В реальном режиме продолжаем запрашивать данные до отключения карты
     }
   }
 });

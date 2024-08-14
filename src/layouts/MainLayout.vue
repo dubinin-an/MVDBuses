@@ -1,7 +1,7 @@
 <template>
   <q-layout view="hHh lpR fFf">
 
-    <q-header bordered class="bg-primary text-white">
+    <q-header bordered class="bg-primary text-white" style="height: 6vh">
       <q-toolbar>
         <q-btn dense flat round icon="menu" @click="toggleLeftDrawer" />
 
@@ -26,7 +26,6 @@
 
     <q-page-container>
       <router-view />
-
     </q-page-container>
 
   </q-layout>
