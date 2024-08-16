@@ -11,25 +11,30 @@ export const useMarkersStore = defineStore('markers', {
       "lineas": []
     },
     devmode: import.meta.env.MODE === 'development' // Определяем режим
+    // devmode: false // Определяем режим
   }),
   actions: {
+    setBusPayload(payload) {
+      this.busPayload = Object.assign({}, this.busPayload, payload);
+    },
     setMapActiveState(payload) {
       this.mapActiveState = payload;
-      console.log('setMapActiveState mapActiveState', this.mapActiveState);
     },
     async getBusMarkers() {
       console.log('getBusMarkers DEV', this.devmode);
 
+      const minInterval = 1000; // Минимальное время между итерациями в миллисекундах
       const url = this.devmode
         ? 'http://localhost/stm-online-mock' // Моковые данные
         : 'http://localhost/stm-online'; // Реальные данные
 
-      const temp = _.cloneDeep(this.busPayload);
-      if (temp.lineas.length === 0) delete temp.lineas;
-
-      console.log('getBusMarkers mapActiveState', this.mapActiveState);
       do {
+        const startTime = Date.now();
+
         try {
+          const temp = _.cloneDeep(this.busPayload);
+          if (temp.lineas.length === 0) delete temp.lineas;
+
           const response = await fetch(url, {
             method: 'POST',
             headers: {
@@ -59,6 +64,16 @@ export const useMarkersStore = defineStore('markers', {
         } catch (error) {
           console.error("Failed to fetch bus markers:", error);
         }
+
+        // Рассчитываем время выполнения итерации
+        const iterationTime = Date.now() - startTime;
+        const remainingTime = minInterval - iterationTime;
+
+        // Если итерация заняла меньше minInterval, ждем оставшееся время
+        if (remainingTime > 0) {
+          await new Promise(resolve => setTimeout(resolve, remainingTime));
+        }
+
       } while (!this.devmode && this.mapActiveState); // В реальном режиме продолжаем запрашивать данные до отключения карты
     }
   }

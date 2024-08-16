@@ -3,7 +3,7 @@
 
     <q-header bordered class="bg-primary text-white" style="height: 6vh">
       <q-toolbar>
-        <q-btn dense flat round icon="menu" @click="toggleLeftDrawer" />
+<!--        <q-btn dense flat round icon="menu" @click="toggleLeftDrawer" />-->
 
         <q-toolbar-title>
 <!--          <q-avatar>-->
@@ -11,8 +11,10 @@
 <!--          </q-avatar>-->
           Title
         </q-toolbar-title>
+        <q-space />
+        <SearchComponent v-if="$q.platform.is.desktop"/>
 
-        <q-btn dense flat round icon="menu" @click="toggleRightDrawer" />
+        <q-btn dense flat round icon="menu" v-if="$q.platform.is.mobile" @click="toggleRightDrawer" />
       </q-toolbar>
     </q-header>
 
@@ -22,6 +24,8 @@
 
     <q-drawer v-model="rightDrawerOpen" side="right" overlay elevated>
       <!-- drawer content -->
+      <SearchComponent v-if="$q.platform.is.mobile"/>
+
     </q-drawer>
 
     <q-page-container>
@@ -33,6 +37,7 @@
 
 <script setup>
 import { ref } from 'vue'
+import SearchComponent from 'components/Search/SearchComponent.vue'
 
 defineOptions({
   name: 'MainLayout'

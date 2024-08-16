@@ -20,7 +20,7 @@ const type2icon = function(type) { // Типы иконок на карте
     "bus": '\uf55e', //bus
     5: '\uf1ad', //building
     6: '\uf288', //round P
-    7: '\uf540', //square P
+    'stop': '\uf540', //square P
   };
   return iconMap[type] || '\uf057';
 };
