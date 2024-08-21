@@ -1,7 +1,7 @@
 {
   "name": "mvdbuses",
   "version": "0.0.1",
-  "description": "Buses to Montevideo",
+  "description": "Buses in Montevideo",
   "productName": "MVD Buses",
   "author": "Dan <dubinin.a.n@gmail.com>",
   "private": true,
