@@ -1,10 +1,13 @@
-import { useMarkersStore } from 'stores/useMarkersStore'
-const store = useMarkersStore();
+import { useBusOnlineMarkersStore } from 'stores/useBusOnlineMarkersStore'
+const store = useBusOnlineMarkersStore();
 
 
 export function searchBus(param){
   console.log('searchBus', param)
-  store.setBusPayload({"lineas": param.split(',')})
+  let send = ''
+  if (param === '') send = []
+  else send = param.split(',')
+  store.setBusPayload({"lineas": send})
 }
 export function searchCompany(param){
   console.log('searchCompany', param)

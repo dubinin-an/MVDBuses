@@ -1,8 +1,8 @@
-// useMarkersStore.js
+// useBusOnlineMarkersStore.js
 import { defineStore } from 'pinia';
 import _ from "lodash";
 
-export const useMarkersStore = defineStore('markers', {
+export const useBusOnlineMarkersStore = defineStore('busOnlineMarkers', {
   state: () => ({
     markers: [],
     mapActiveState: false,
@@ -23,7 +23,7 @@ export const useMarkersStore = defineStore('markers', {
     async getBusMarkers() {
       console.log('getBusMarkers DEV', this.devmode);
 
-      const minInterval = 1000; // Минимальное время между итерациями в миллисекундах
+      const minInterval = 10000; // Минимальное время между итерациями в миллисекундах
       const url = this.devmode
         ? 'http://localhost/stm-online-mock' // Моковые данные
         : 'http://localhost/stm-online'; // Реальные данные
@@ -75,6 +75,11 @@ export const useMarkersStore = defineStore('markers', {
         }
 
       } while (!this.devmode && this.mapActiveState); // В реальном режиме продолжаем запрашивать данные до отключения карты
+    }
+  },
+  getters: {
+    getLines(state){
+      return state.busPayload.lineas
     }
   }
 });

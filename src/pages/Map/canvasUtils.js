@@ -1,13 +1,15 @@
 // canvasUtils.js
 import '@fortawesome/fontawesome-free/css/all.css';
+import { colorShade } from 'src/lib/tools'
 
 export const iconSize = 20;
 
 const status2color = function(status) { // Цвет иконки в зависимости от статуса
-  if (status === 70) return 'orange'; //ucot
-  if (status === 20) return 'green'; //come
-  if (status === 50) return 'blue'; //cutcsa
-  if (status === 10) return 'red'; //coetc
+  if (status === 70) return '#ffa500'//'orange'; //ucot
+  if (status === 20) return '#008000'//'green'; //come
+  if (status === 50) return '#0102fd'//'blue'; //cutcsa
+  if (status === 10) return '#ff0000'//'red'; //coetc
+  if (status === 0) return '#3377e4'//'red'; //stop
   return 'black';
 };
 
@@ -26,8 +28,13 @@ const type2icon = function(type) { // Типы иконок на карте
 };
 
 export const drawFontAwesomeIcon = function(ctx, icon, x, y) {
-  ctx.font = `${iconSize}px FontAwesome`;
-  ctx.fillStyle = status2color(icon.status); // Цвет иконки
+  const tempIcon = icon.type === 'stop' ? 3*iconSize/4 : iconSize
+
+  ctx.fillStyle = 'white';
+  ctx.fillRect(x-tempIcon/2+3, y-tempIcon/2+3, tempIcon-6, tempIcon-6);
+
+  ctx.font = `${tempIcon}px FontAwesome`;
+  ctx.fillStyle =  status2color(icon.status);// Цвет иконки
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   const iconUnicode = type2icon(icon.type);
@@ -62,7 +69,19 @@ export const handleClick = function(event, canvas, markers, map) {
   const x = event.clientX - rect.left;
   const y = event.clientY - rect.top;
 
-  markers.forEach((marker) => {
+  // markers.forEach((marker) => {
+  //   const point = map.latLngToContainerPoint(marker.geometry.coordinates);
+  //   if (
+  //     x >= point.x - iconSize / 2 &&
+  //     x <= point.x + iconSize / 2 &&
+  //     y >= point.y - iconSize / 2 &&
+  //     y <= point.y + iconSize / 2
+  //   ) {
+  //     alert(`${marker.properties.name} clicked!`);
+  //     return marker.properties
+  //   }
+  // });
+  return markers.filter((marker) => {
     const point = map.latLngToContainerPoint(marker.geometry.coordinates);
     if (
       x >= point.x - iconSize / 2 &&
@@ -70,7 +89,8 @@ export const handleClick = function(event, canvas, markers, map) {
       y >= point.y - iconSize / 2 &&
       y <= point.y + iconSize / 2
     ) {
-      alert(`${marker.properties.name} clicked!`);
+      // alert(`${marker.properties.name} clicked!`);
+      return marker
     }
   });
 };

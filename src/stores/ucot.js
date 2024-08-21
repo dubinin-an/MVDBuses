@@ -1,5 +1,4 @@
 import { defineStore } from 'pinia'
-import axios from 'axios'
 import _ from 'lodash'
 
 export const useUcotStore = defineStore('ucot', {
@@ -38,7 +37,7 @@ export const useUcotStore = defineStore('ucot', {
         console.error('Ошибка при запросе страницы:', error);
       }
     },
-    async getStops () {
+    async getStopsFromServer () {
       const uri = 'http://localhost/ucot/OSM/paradas.kml'
       try {
         const response = await fetch(uri);
@@ -85,7 +84,8 @@ export const useUcotStore = defineStore('ucot', {
             routes: coordinatesMap[coordKey].routes
           }));
 
-          console.log(coordinatesArray);
+          // console.log(coordinatesArray);
+          this.stops = coordinatesArray;
         }
       } catch (error) {
         console.error('Ошибка при запросе страницы:', error);
@@ -93,15 +93,15 @@ export const useUcotStore = defineStore('ucot', {
     }
   },
   getters: {
-    stops (state) {
-      state.stops = state.stops.map(stop => {
+    stopMarkers (state) {
+      return state.stops.map(stop => {
         const temp = _.cloneDeep(stop)
         delete temp.coordinates
         temp.type = 'stop'
-        temp.status = 70
+        temp.status = 0
         return {
           geometry : {type: "Point", coordinates: stop.coordinates},
-          properties : {stop},
+          properties : temp,
           type : "Feature"
         }
       })

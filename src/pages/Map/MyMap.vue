@@ -1,7 +1,39 @@
 <template>
   <div id="map">
-    <canvas ref="canvas" style="position: absolute; top: 0; left: 0; z-index: 500"></canvas>
+    <canvas ref="stopCanvas" style="position: absolute; top: 0; left: 0; z-index: 500"></canvas>
+    <canvas ref="busCanvas" style="position: absolute; top: 0; left: 0; z-index: 501"></canvas>
   </div>
+
+  <q-dialog v-model="selectMarkersDialog" backdrop-filter="'contrast(40%)">
+    <q-card style="width: 700px; max-width: 80vw;">
+      <q-card-section class="row items-center q-pb-none text-h6">
+        Dialog
+      </q-card-section>
+
+      <q-card-section>
+        <q-list dense bordered separator>
+
+          <q-item tag="label" v-ripple
+                  v-for="(item, id) in selectedMarkers"
+                  :key="id"
+          >
+            <q-item-section side top>
+              <q-checkbox v-model="item.check" />
+            </q-item-section>
+
+            <q-item-section>
+              <q-item-label>{{item.properties.name}}</q-item-label>
+            </q-item-section>
+          </q-item>
+        </q-list>
+      </q-card-section>
+
+      <q-card-actions align="right">
+        <q-btn flat label="Close" color="primary" v-close-popup @click="selectedMarkers = []"/>
+        <q-btn flat label="Select" :disable="!ifCheckMarkers" color="primary" v-close-popup @click="selectBus"/>
+      </q-card-actions>
+    </q-card>
+  </q-dialog>
 </template>
 
 <script setup>
@@ -11,41 +43,60 @@ import "leaflet.locatecontrol"; // Импорт плагина
 import "leaflet.locatecontrol/dist/L.Control.Locate.min.css"; // Импорт стилей
 import 'leaflet/dist/leaflet.css';
 import { drawFontAwesomeIcon, drawCircle, handleClick as handleCanvasClick, iconSize, drawBadge } from './canvasUtils';
-import { useMarkersStore } from 'stores/useMarkersStore'
+import { useBusOnlineMarkersStore } from 'stores/useBusOnlineMarkersStore'
 import { debounce } from 'lodash'
+import { stopMarkers } from 'src/lib/basesUtils'
+import { searchBus } from 'components/Search/SearchController'
+import { filterUnique } from 'src/lib/tools'
 
-const minZoomForIcons = 12; // Минимальный уровень зума для отображения иконок
+const minBusZoomForIcons = 12; // Минимальный уровень зума для отображения иконок
+const minStopZoomForIcons = 17; // Минимальный уровень зума для отображения иконок
 const center = [-34.9058916, -56.1913095]; // Заданная центральная точка
-const markersCount = 5000; // Количество маркеров для генерации
-const store = useMarkersStore();
+const busOnlineStore = useBusOnlineMarkersStore();
 
-const devMode = computed(() => store.devmode);
-store.setMapActiveState(!devMode.value);
-// store.generateRandomMarkers(center, markersCount);
-
-store.getBusMarkers();
-const markers = computed(() => store.markers);
-watch(markers, () => debouncedDrawIcons(),
+const devMode = computed(() => busOnlineStore.devmode);
+busOnlineStore.setMapActiveState(!devMode.value);
+busOnlineStore.getBusMarkers();
+const busOnlineMarkers = computed(() => busOnlineStore.markers);
+watch(busOnlineMarkers, () => debouncedDrawBusMarkers(),
   {deep: true}
 );
 
-const canvas = ref(null);
+const ifCheckMarkers = computed(() => selectedMarkers.value.filter(item => item.check).length>0);
+
+const busCanvas = ref(null);
+const stopCanvas = ref(null);
+const selectMarkersDialog = ref(false);
 let map;
-let ctx;
-// const zoomLevel = ref(minZoomForIcons);
-const zoomLevel = computed(() => map.getZoom());
+let busctx;
+let stopctx;
+const zoomLevel = ref(minBusZoomForIcons);
+const selectedMarkers = ref([]);
+const selectBus = () => {
+  const temp = selectedMarkers.value.filter(item => item.check).map(item => item.properties.name);
+  searchBus(temp.join(','))
+}
+
+watch(selectedMarkers, () => {
+  selectMarkersDialog.value = selectedMarkers.value.length > 1
+  if (selectedMarkers.value.length === 1) {
+    selectedMarkers.value[0].check = true
+    selectBus()
+  }
+  },
+  {deep: true}
+);
 
 const popup = computed(() => L.popup({
-  offset: L.point(0, zoomLevel.value >= minZoomForIcons ? -2 : 6), // Поднятие на 10 пикселей
+  offset: L.point(0, zoomLevel.value >= minBusZoomForIcons ? -2 : 6), // Поднятие на 10 пикселей
   className: 'custom-popup'
 }));
-const debouncedDrawIcons = debounce(drawIcons, 200);
+const debouncedDrawBusMarkers = debounce(drawBusMarkers, 200);
 
 onMounted(async () => {
   console.log('MyMapTS DEV', devMode.value);
 
-  map = L.map('map').setView(center, minZoomForIcons);
-  // zoomLevel.value = map.getZoom();
+  map = L.map('map').setView(center, minBusZoomForIcons);
   map.zoomControl.setPosition('topright');
   L.control.locate({
     flyTo: true,
@@ -57,66 +108,98 @@ onMounted(async () => {
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap ' + (devMode.value ? 'DEV' : 'PROD')
   }).addTo(map);
-
-  ctx = canvas.value.getContext('2d');
+  busctx = busCanvas.value.getContext('2d');
+  stopctx = stopCanvas.value.getContext('2d');
   resizeCanvas();
 
-  map.on('move', drawIcons);
-  map.on('zoomend', () => {
-    // zoomLevel.value = map.getZoom();
-    debouncedDrawIcons();
+  map.on('move', () => {
+    drawStopMarkers()
+    drawBusMarkers()
   });
+  map.on('zoomend', () => {
+    zoomLevel.value = map.getZoom();
+    drawStopMarkers()
+    debouncedDrawBusMarkers();
+  });
+
   window.addEventListener('resize', resizeCanvas);
-  canvas.value.addEventListener('click', (event) => handleCanvasClick(event, canvas.value, markers.value, map));
-  // canvas.value.addEventListener('mousemove', handleMouseMove);
+  busCanvas.value.addEventListener('click', (event) => {
+    const temp = handleCanvasClick(event, busCanvas.value, busOnlineMarkers.value, map)
+    temp.forEach(item => item.check = false)
+    // selectedMarkers.value = temp
+    selectedMarkers.value = filterUnique(temp)
+  });
 
   await document.fonts.load(`${iconSize}px FontAwesome`);
   document.fonts.ready.then(() => {
-    debouncedDrawIcons();
+    debouncedDrawBusMarkers();
   });
+  drawStopMarkers()
+
 });
 
 onUnmounted(() => {
-  map.off('move', drawIcons);
-  map.off('zoomend', drawIcons);
+  map.off('move', drawBusMarkers);
+  map.off('zoomend', drawBusMarkers);
   window.removeEventListener('resize', resizeCanvas);
-  if (canvas.value) {
-    canvas.value.removeEventListener('click', (event) => handleCanvasClick(event, canvas.value, markers.value, map));
-    // canvas.value.removeEventListener('mousemove', handleMouseMove);
+  if (busCanvas.value) {
+    busCanvas.value.removeEventListener('click', (event) => handleCanvasClick(event, busCanvas.value, busOnlineMarkers.value, map));
   }
 });
 
 function resizeCanvas() {
   const size = map.getSize();
-  canvas.value.width = size.x;
-  canvas.value.height = size.y;
-  debouncedDrawIcons();
+  busCanvas.value.width = size.x;
+  busCanvas.value.height = size.y
+  stopCanvas.value.width = size.x;
+  stopCanvas.value.height = size.y;
+  drawBusMarkers();
+  drawStopMarkers()
 }
 
-function drawIcons() {
-  ctx.clearRect(0, 0, canvas.value.width, canvas.value.height);
+function drawBusMarkers() {
+  busctx.clearRect(0, 0, busCanvas.value.width, busCanvas.value.height);
 
   const bounds = map.getBounds();
-  markers.value.forEach((marker) => {
+  busOnlineMarkers.value.forEach((marker) => {
     const latLng = L.latLng(marker.geometry.coordinates[0], marker.geometry.coordinates[1]);
     if (bounds.contains(latLng)) {
       const point = map.latLngToContainerPoint(latLng);
-      if (zoomLevel.value >= minZoomForIcons) {
-        drawFontAwesomeIcon(ctx, marker.properties, point.x, point.y);
-        drawBadge(ctx, marker.properties.name, marker.properties.status, point.x, point.y);
+      if (zoomLevel.value >= minBusZoomForIcons) {
+        drawFontAwesomeIcon(busctx, marker.properties, point.x, point.y);
+        drawBadge(busctx, marker.properties.name, marker.properties.status, point.x, point.y);
       } else {
-        drawCircle(ctx, marker.properties, point.x, point.y);
+        drawCircle(busctx, marker.properties, point.x, point.y);
+      }
+    }
+  });
+  // drawStopMarkers(); // Перерисовываем маркеры остановок, чтобы они оставались поверх маркеров автобусов
+
+}
+function drawStopMarkers() {
+  stopctx.clearRect(0, 0, stopCanvas.value.width, stopCanvas.value.height);
+
+  const bounds = map.getBounds();
+  if (zoomLevel.value >= 15)
+    stopMarkers().forEach((marker) => {
+    const latLng = L.latLng(marker.geometry.coordinates[0], marker.geometry.coordinates[1]);
+    if (bounds.contains(latLng)) {
+      const point = map.latLngToContainerPoint(latLng);
+      if (zoomLevel.value >= minStopZoomForIcons) {
+        drawFontAwesomeIcon(stopctx, marker.properties, point.x, point.y);
+      } else {
+        drawCircle(stopctx, marker.properties, point.x, point.y);
       }
     }
   });
 }
 
 function handleMouseMove(event) {
-  const rect = canvas.value.getBoundingClientRect();
+  const rect = busCanvas.value.getBoundingClientRect();
   const x = event.clientX - rect.left;
   const y = event.clientY - rect.top;
 
-  const markersUnderMouse = markers.value.filter((marker) => {
+  const markersUnderMouse = busOnlineMarkers.value.filter((marker) => {
     const latLng = L.latLng(marker.geometry.coordinates[0], marker.geometry.coordinates[1]);
     const point = map.latLngToContainerPoint(latLng);
     return (
@@ -127,14 +210,14 @@ function handleMouseMove(event) {
     );
   });
 
-  if (markersUnderMouse.length > 0 && zoomLevel.value >= minZoomForIcons - 3) {
+  if (markersUnderMouse.length > 0 && zoomLevel.value >= minBusZoomForIcons - 3) {
     const latLng = L.latLng(markersUnderMouse[0].geometry.coordinates[0], markersUnderMouse[0].geometry.coordinates[1]);
     const content = markersUnderMouse.map(marker => marker.properties.name).join('<br>');
     popup.value
     .setLatLng(latLng)
     .setContent(content)
     .openOn(map);
-  } else if (zoomLevel.value >= minZoomForIcons) {
+  } else if (zoomLevel.value >= minBusZoomForIcons) {
     map.closePopup();
   }
 }
